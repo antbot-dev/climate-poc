@@ -7,11 +7,20 @@
     <header class="bg-ink-50/90 backdrop-blur-md border-b border-ink-200/60 sticky top-0 z-40">
       <div class="max-w-6xl mx-auto px-5 py-4 flex items-center justify-between">
         <a href="/" class="flex items-center gap-3 group">
-          <div class="w-9 h-9 bg-ink-900 rounded-sm flex items-center justify-center flex-shrink-0">
-            <span class="text-ink-50 font-display text-sm leading-none">&deg;C</span>
-          </div>
+          <svg class="w-8 h-8 flex-shrink-0" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- Thermometer body -->
+            <rect x="13" y="4" width="6" height="18" rx="3" class="stroke-ink-800 group-hover:stroke-heat-600 transition-colors" stroke-width="1.5" fill="none" />
+            <!-- Mercury bulb -->
+            <circle cx="16" cy="24" r="4.5" class="stroke-ink-800 group-hover:stroke-heat-600 transition-colors" stroke-width="1.5" fill="none" />
+            <!-- Mercury fill -->
+            <rect x="14.5" y="12" width="3" height="10" rx="1.5" class="fill-heat-500" />
+            <circle cx="16" cy="24" r="3" class="fill-heat-500" />
+            <!-- Heat waves -->
+            <path d="M23 10c1 -1.5 1 -3.5 0 -5" class="stroke-heat-400" stroke-width="1.2" stroke-linecap="round" fill="none" />
+            <path d="M26 11c1 -1.5 1 -3.5 0 -5" class="stroke-heat-300" stroke-width="1" stroke-linecap="round" fill="none" />
+          </svg>
           <div>
-            <h1 class="text-base font-display italic text-ink-900 tracking-tight leading-none group-hover:text-heat-700 transition-colors">
+            <h1 class="text-base font-display italic text-ink-900 tracking-tight leading-none group-hover:text-heat-600 transition-colors">
               Gérer l'inévitable
             </h1>
             <p class="text-[11px] text-ink-400 tracking-wide uppercase mt-0.5">Repères face à la dérive climatique</p>
@@ -137,27 +146,27 @@
     <!-- Empty state cards -->
     <template v-if="!selectedCommune">
       <section class="max-w-4xl mx-auto px-5 py-16">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-px bg-ink-200 border border-ink-200 rounded-sm overflow-hidden animate-fade-up-2">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-px bg-ink-300 border border-ink-300 rounded-sm overflow-hidden animate-fade-up-2 shadow-sm">
           <div class="bg-white p-8">
-            <div class="w-10 h-10 border border-ink-200 rounded-sm flex items-center justify-center mb-4">
-              <span class="font-display text-lg text-ink-700">01</span>
+            <div class="w-10 h-10 border border-ink-300 bg-ink-50 rounded-sm flex items-center justify-center mb-4">
+              <span class="font-display text-lg text-ink-800">01</span>
             </div>
             <h3 class="font-display text-lg text-ink-800 mb-2">Risques &amp; projections</h3>
-            <p class="text-sm text-ink-500 leading-relaxed">Températures, précipitations, scénarios GIEC à l'échelle de votre commune.</p>
+            <p class="text-sm text-ink-600 leading-relaxed">Températures, précipitations, scénarios GIEC à l'échelle de votre commune.</p>
           </div>
           <div class="bg-white p-8">
-            <div class="w-10 h-10 border border-ink-200 rounded-sm flex items-center justify-center mb-4">
-              <span class="font-display text-lg text-ink-700">02</span>
+            <div class="w-10 h-10 border border-ink-300 bg-ink-50 rounded-sm flex items-center justify-center mb-4">
+              <span class="font-display text-lg text-ink-800">02</span>
             </div>
             <h3 class="font-display text-lg text-ink-800 mb-2">Gouvernance locale</h3>
-            <p class="text-sm text-ink-500 leading-relaxed">Catastrophes naturelles sous le mandat, élus sortants et adaptation du territoire.</p>
+            <p class="text-sm text-ink-600 leading-relaxed">Catastrophes naturelles sous le mandat, élus sortants et adaptation du territoire.</p>
           </div>
           <div class="bg-white p-8">
-            <div class="w-10 h-10 border border-ink-200 rounded-sm flex items-center justify-center mb-4">
-              <span class="font-display text-lg text-ink-700">03</span>
+            <div class="w-10 h-10 border border-ink-300 bg-ink-50 rounded-sm flex items-center justify-center mb-4">
+              <span class="font-display text-lg text-ink-800">03</span>
             </div>
             <h3 class="font-display text-lg text-ink-800 mb-2">Interrogez les données</h3>
-            <p class="text-sm text-ink-500 leading-relaxed">Posez vos questions sur les données publiques avec l'assistant IA.</p>
+            <p class="text-sm text-ink-600 leading-relaxed">Posez vos questions sur les données publiques avec l'assistant IA.</p>
           </div>
         </div>
       </section>

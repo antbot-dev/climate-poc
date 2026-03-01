@@ -30,9 +30,8 @@ export default defineEventHandler(async (event) => {
 
   try {
     // Call Gemini generateContent with image generation enabled
-    // Using gemini-2.0-flash-preview-image-generation for Nano Banana
     const response = await $fetch<any>(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent`,
       {
         method: 'POST',
         params: { key: apiKey },
@@ -65,10 +64,10 @@ export default defineEventHandler(async (event) => {
   } catch (e: any) {
     console.error('Image generation error:', e?.data || e.message)
 
-    // If Nano Banana Pro model not available, try Imagen
+    // If primary model not available, try Imagen 4
     try {
       const imagenResponse = await $fetch<any>(
-        `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict`,
+        `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict`,
         {
           method: 'POST',
           params: { key: apiKey },
@@ -93,9 +92,11 @@ export default defineEventHandler(async (event) => {
       // Both failed
     }
 
+    // Sanitize error — never leak API keys to the client
+    const safeMessage = (e.message || '').replace(/key=[^&"\s]+/gi, 'key=***')
     throw createError({
       statusCode: 500,
-      message: `Génération d'image échouée: ${e.message}`,
+      message: `Génération d'image échouée: ${safeMessage}`,
     })
   }
 })

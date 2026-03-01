@@ -1,6 +1,6 @@
 <template>
-  <div class="relative w-full max-w-2xl z-40">
-    <div class="relative group">
+  <div class="relative w-full max-w-2xl">
+    <div class="relative z-[45] group">
       <input
         v-model="query"
         type="text"
