@@ -47,9 +47,11 @@
           class="w-full aspect-[16/9] object-cover"
         />
         <div class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-ink-950/90 via-ink-950/40 to-transparent p-5">
-          <p class="text-white text-sm font-medium">{{ description }}</p>
+          <p class="text-white text-sm font-medium">
+            {{ communeName }} &mdash; Scénario {{ currentScenario.label }}
+          </p>
           <p class="text-white/50 text-xs mt-1">
-            Scénario {{ currentScenario.label }} &middot; {{ currentScenario.warming }} en 2050
+            {{ currentScenario.warming }} en 2050
           </p>
         </div>
       </div>
@@ -81,6 +83,13 @@
       </div>
     </div>
 
+    <!-- Scenario explanation -->
+    <div v-if="generatedImage && description" class="px-6 py-4 border-t border-ink-700/50">
+      <p class="text-sm text-ink-300 leading-relaxed">
+        {{ description }}
+      </p>
+    </div>
+
     <!-- Caption -->
     <div class="px-6 py-3 border-t border-ink-700/50">
       <p class="text-[10px] text-ink-500 leading-relaxed">
@@ -109,17 +118,38 @@ const description = ref('')
 const loading = ref(false)
 const error = ref<string | null>(null)
 
+// Cache generated images: key = "communeName::scenarioId"
+const imageCache = new Map<string, { image: string; description: string }>()
+
+function cacheKey() {
+  return `${props.communeName}::${selectedScenario.value}`
+}
+
 const currentScenario = computed(() =>
   scenarios.find((s) => s.id === selectedScenario.value) || scenarios[1],
 )
 
 function selectScenario(id: string) {
   selectedScenario.value = id
-  generatedImage.value = null
   error.value = null
+  const cached = imageCache.get(`${props.communeName}::${id}`)
+  if (cached) {
+    generatedImage.value = cached.image
+    description.value = cached.description
+  } else {
+    generatedImage.value = null
+  }
 }
 
 async function generate() {
+  const key = cacheKey()
+  const cached = imageCache.get(key)
+  if (cached) {
+    generatedImage.value = cached.image
+    description.value = cached.description
+    return
+  }
+
   loading.value = true
   error.value = null
   generatedImage.value = null
@@ -137,6 +167,7 @@ async function generate() {
 
     generatedImage.value = response.image
     description.value = response.description
+    imageCache.set(key, { image: response.image, description: response.description })
   } catch (e: any) {
     error.value = e.data?.message || 'Impossible de générer l\'image.'
   } finally {

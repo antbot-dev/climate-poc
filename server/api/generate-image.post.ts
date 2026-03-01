@@ -26,7 +26,11 @@ export default defineEventHandler(async (event) => {
     ? `The area is particularly affected by: ${risks.join(', ')}.`
     : ''
 
-  const prompt = `A realistic photographic view of the French commune of ${communeName} (${regionName || 'France'}) in the year 2050 under a climate warming scenario of ${warming} above pre-industrial levels. Show realistic climate impacts: ${riskContext} The scene should show recognizable French urban/rural architecture adapted to extreme heat — drought-resistant vegetation, sun shading structures, dried riverbed or flooded streets depending on risks, yellowed grass, intense sunlight with haze. Style: documentary photography, golden hour, slightly dystopian but realistic. No text overlays.`
+  const prompt = `Generate an image AND a text description.
+
+IMAGE: A realistic photographic view of the French commune of ${communeName} (${regionName || 'France'}) in the year 2050 under a climate warming scenario of ${warming} above pre-industrial levels. Show realistic climate impacts: ${riskContext} The scene should show recognizable French urban/rural architecture adapted to extreme heat — drought-resistant vegetation, sun shading structures, dried riverbed or flooded streets depending on risks, yellowed grass, intense sunlight with haze. Style: documentary photography, golden hour, slightly dystopian but realistic. No text overlays.
+
+TEXT: Write a 2-3 sentence paragraph IN FRENCH explaining the concrete climate impacts visible in this scenario for ${communeName}. Mention the ${warming} warming level, the specific risks (${risks?.join(', ') || 'risques climatiques généraux'}), and what daily life changes residents would face by 2050. Be factual and grounded, not alarmist. Do not describe the image itself — explain the real-world situation.`
 
   try {
     // Call Gemini generateContent with image generation enabled
