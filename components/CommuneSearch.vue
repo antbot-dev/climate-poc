@@ -1,19 +1,24 @@
 <template>
-  <div class="relative w-full max-w-2xl">
+  <div :class="['relative w-full', compact ? '' : 'max-w-2xl']">
     <div class="relative z-[45] group">
       <input
         v-model="query"
         type="text"
-        placeholder="Nom ou code postal de votre commune..."
-        class="w-full px-5 py-4 pr-12 text-lg font-body bg-white border-2 border-ink-300 text-ink-900 placeholder-ink-400 rounded-sm shadow-sm focus:border-ink-800 focus:shadow-md outline-none transition-all"
+        :placeholder="compact ? 'Chercher une commune...' : 'Nom ou code postal de votre commune...'"
+        :class="[
+          'w-full font-body bg-white text-ink-900 placeholder-ink-400 rounded-sm outline-none transition-all',
+          compact
+            ? 'px-3 py-2 pr-9 text-sm border border-ink-300 focus:border-ink-600'
+            : 'px-5 py-4 pr-12 text-lg border-2 border-ink-300 shadow-sm focus:border-ink-800 focus:shadow-md',
+        ]"
         @input="onInput"
         @focus="showResults = true"
       />
-      <div v-if="isSearching" class="absolute right-4 top-1/2 -translate-y-1/2">
-        <div class="w-5 h-5 border-2 border-heat-500 border-t-transparent rounded-full animate-spin" />
+      <div v-if="isSearching" :class="['absolute top-1/2 -translate-y-1/2', compact ? 'right-2.5' : 'right-4']">
+        <div :class="['border-2 border-heat-500 border-t-transparent rounded-full animate-spin', compact ? 'w-4 h-4' : 'w-5 h-5']" />
       </div>
-      <div v-else class="absolute right-4 top-1/2 -translate-y-1/2 text-ink-400 group-focus-within:text-ink-600 transition-colors">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+      <div v-else :class="['absolute top-1/2 -translate-y-1/2 text-ink-400 group-focus-within:text-ink-600 transition-colors', compact ? 'right-2.5' : 'right-4']">
+        <svg :class="compact ? 'w-4 h-4' : 'w-5 h-5'" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
         </svg>
       </div>
@@ -50,6 +55,8 @@
 </template>
 
 <script setup lang="ts">
+const props = withDefaults(defineProps<{ compact?: boolean }>(), { compact: false })
+
 const { searchResults, isSearching, searchCommunes, selectCommune } = useCommune()
 
 const query = ref('')

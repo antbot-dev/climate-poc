@@ -27,6 +27,10 @@
           </div>
         </a>
         <nav class="hidden sm:flex items-center gap-4">
+          <!-- Compact search in header when commune is selected -->
+          <div v-if="selectedCommune" class="w-[280px]">
+            <CommuneSearch compact />
+          </div>
           <a
             href="https://editionsdelaube.fr/catalogue_de_livres/gerer-linevitable-reperes-face-a-la-derive-climatique/"
             target="_blank"
@@ -42,42 +46,81 @@
       </div>
     </header>
 
-    <!-- Hero + Search -->
-    <section class="relative overflow-visible z-20">
+    <!-- Hero + Search (landing only) -->
+    <section v-if="!selectedCommune" class="relative overflow-visible z-20">
       <!-- Heat gradient bar at top -->
       <div class="h-1 w-full bg-gradient-to-r from-green-500 via-heat-400 to-crisis-600" />
 
-      <div class="max-w-6xl mx-auto px-5 pt-16 pb-12">
-        <div class="max-w-3xl">
-          <p class="text-xs uppercase tracking-[0.2em] text-heat-600 font-semibold mb-4 animate-fade-up">Explorer les données</p>
-          <h2 class="font-display text-4xl sm:text-5xl lg:text-[3.5rem] text-ink-900 leading-[1.1] mb-5 animate-fade-up-1">
-            Votre commune face à la dérive climatique
-          </h2>
-          <p class="text-lg text-ink-500 leading-relaxed max-w-xl mb-10 animate-fade-up-2">
-            Risques, projections, catastrophes naturelles&nbsp;: explorez les données publiques de votre territoire. Un outil compagnon du livre <em class="font-display text-ink-700">Gérer l'inévitable</em>.
-          </p>
+      <div class="max-w-6xl mx-auto px-5 pt-10 pb-8">
+        <div class="flex flex-col lg:flex-row gap-10 lg:gap-12 items-start">
+          <!-- Left column: title + search + chat input -->
+          <div class="flex-[3] min-w-0">
+            <p class="text-xs uppercase tracking-[0.2em] text-heat-600 font-semibold mb-4 animate-fade-up">Explorer les données</p>
+            <h2 class="font-display text-4xl sm:text-5xl lg:text-[2.75rem] text-ink-900 leading-[1.1] mb-4 animate-fade-up-1">
+              Votre commune face à la dérive climatique
+            </h2>
+            <p class="text-lg text-ink-500 leading-relaxed max-w-xl mb-6 animate-fade-up-2">
+              Risques, projections, catastrophes naturelles&nbsp;: explorez les données publiques de votre territoire. Un outil compagnon du livre <em class="font-display text-ink-700">Gérer l'inévitable</em>.
+            </p>
 
-          <div class="animate-fade-up-3">
-            <CommuneSearch />
-          </div>
-        </div>
+            <div class="animate-fade-up-3">
+              <CommuneSearch />
+            </div>
 
-        <!-- Inline chat below search (landing page only) -->
-        <div v-if="!selectedCommune" class="max-w-3xl mt-8 animate-fade-up-3 relative z-10">
-          <div class="flex items-center gap-3 mb-4">
-            <div class="h-px flex-1 bg-ink-200" />
-            <span class="text-xs text-ink-400 uppercase tracking-widest whitespace-nowrap">ou posez une question</span>
-            <div class="h-px flex-1 bg-ink-200" />
+            <!-- Compact chat input -->
+            <form class="mt-4 flex gap-2 animate-fade-up-3" @submit.prevent="sendLandingChat">
+              <input
+                v-model="landingChatInput"
+                type="text"
+                placeholder="Posez une question sur les données climatiques..."
+                class="flex-1 px-4 py-2.5 text-sm font-body bg-white border border-ink-300 text-ink-900 placeholder-ink-400 rounded-sm focus:border-ink-600 outline-none transition-all"
+              />
+              <button
+                type="submit"
+                :disabled="!landingChatInput.trim()"
+                class="px-4 py-2.5 bg-ink-800 text-white text-sm rounded-sm hover:bg-ink-900 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" /></svg>
+              </button>
+            </form>
           </div>
-          <McpChatbot inline />
+
+          <!-- Right column: value cards -->
+          <div class="flex-[2] w-full lg:pt-6 animate-fade-up-2">
+            <div class="flex flex-col gap-px bg-ink-300 border border-ink-300 rounded-sm overflow-hidden shadow-sm">
+              <div class="bg-white p-5">
+                <div class="w-9 h-9 border border-ink-300 bg-ink-50 rounded-sm flex items-center justify-center mb-3">
+                  <span class="font-display text-base text-ink-800">01</span>
+                </div>
+                <h3 class="font-display text-base text-ink-800 mb-1.5">Risques &amp; projections</h3>
+                <p class="text-sm text-ink-600 leading-relaxed">Températures, précipitations, scénarios GIEC à l'échelle de votre commune.</p>
+              </div>
+              <div class="bg-white p-5">
+                <div class="w-9 h-9 border border-ink-300 bg-ink-50 rounded-sm flex items-center justify-center mb-3">
+                  <span class="font-display text-base text-ink-800">02</span>
+                </div>
+                <h3 class="font-display text-base text-ink-800 mb-1.5">Gouvernance locale</h3>
+                <p class="text-sm text-ink-600 leading-relaxed">Catastrophes naturelles sous le mandat, élus sortants et adaptation du territoire.</p>
+              </div>
+              <div class="bg-white p-5">
+                <div class="w-9 h-9 border border-ink-300 bg-ink-50 rounded-sm flex items-center justify-center mb-3">
+                  <span class="font-display text-base text-ink-800">03</span>
+                </div>
+                <h3 class="font-display text-base text-ink-800 mb-1.5">Interrogez les données</h3>
+                <p class="text-sm text-ink-600 leading-relaxed">Posez vos questions sur les données publiques avec l'assistant IA.</p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </section>
 
     <!-- Selected commune content -->
     <template v-if="selectedCommune">
+      <!-- Heat gradient bar -->
+      <div class="h-1 w-full bg-gradient-to-r from-green-500 via-heat-400 to-crisis-600" />
       <!-- Commune header strip -->
-      <section class="border-y border-ink-200 bg-white/60 animate-fade-in">
+      <section class="border-b border-ink-200 bg-white/60 animate-fade-in">
         <div class="max-w-6xl mx-auto px-5 py-4 flex flex-col sm:flex-row items-start sm:items-center gap-4">
           <div class="flex-1">
             <h2 class="font-display text-2xl sm:text-3xl text-ink-900 leading-tight">{{ selectedCommune.nom }}</h2>
@@ -143,35 +186,6 @@
       </section>
     </template>
 
-    <!-- Empty state cards -->
-    <template v-if="!selectedCommune">
-      <section class="max-w-4xl mx-auto px-5 py-16">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-px bg-ink-300 border border-ink-300 rounded-sm overflow-hidden animate-fade-up-2 shadow-sm">
-          <div class="bg-white p-8">
-            <div class="w-10 h-10 border border-ink-300 bg-ink-50 rounded-sm flex items-center justify-center mb-4">
-              <span class="font-display text-lg text-ink-800">01</span>
-            </div>
-            <h3 class="font-display text-lg text-ink-800 mb-2">Risques &amp; projections</h3>
-            <p class="text-sm text-ink-600 leading-relaxed">Températures, précipitations, scénarios GIEC à l'échelle de votre commune.</p>
-          </div>
-          <div class="bg-white p-8">
-            <div class="w-10 h-10 border border-ink-300 bg-ink-50 rounded-sm flex items-center justify-center mb-4">
-              <span class="font-display text-lg text-ink-800">02</span>
-            </div>
-            <h3 class="font-display text-lg text-ink-800 mb-2">Gouvernance locale</h3>
-            <p class="text-sm text-ink-600 leading-relaxed">Catastrophes naturelles sous le mandat, élus sortants et adaptation du territoire.</p>
-          </div>
-          <div class="bg-white p-8">
-            <div class="w-10 h-10 border border-ink-300 bg-ink-50 rounded-sm flex items-center justify-center mb-4">
-              <span class="font-display text-lg text-ink-800">03</span>
-            </div>
-            <h3 class="font-display text-lg text-ink-800 mb-2">Interrogez les données</h3>
-            <p class="text-sm text-ink-600 leading-relaxed">Posez vos questions sur les données publiques avec l'assistant IA.</p>
-          </div>
-        </div>
-      </section>
-    </template>
-
     <!-- Footer -->
     <footer class="border-t border-ink-200 bg-white mt-8">
       <div class="max-w-6xl mx-auto px-5 py-10">
@@ -216,6 +230,17 @@ const { riskData, fetchRisks } = useRisks()
 const { climateData, fetchClimateData } = useClimate()
 
 const activeTab = ref<'assistant' | 'elections' | 'climate'>('assistant')
+
+// Compact landing chat
+const { sendMessage } = useChat()
+const landingChatInput = ref('')
+function sendLandingChat() {
+  const text = landingChatInput.value.trim()
+  if (!text) return
+  sendMessage(text)
+  landingChatInput.value = ''
+  activeTab.value = 'assistant'
+}
 
 const tabs = [
   { id: 'assistant' as const, label: 'Assistant IA' },
