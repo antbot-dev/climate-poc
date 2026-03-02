@@ -11,8 +11,8 @@
           <div class="w-6 h-6 border-2 border-heat-500 border-t-transparent rounded-full animate-spin" />
         </div>
 
-        <div v-else-if="climateData.temperatures.length > 0">
-          <canvas ref="tempChartRef" class="w-full h-[300px]" />
+        <div v-else-if="climateData.temperatures.length > 0" class="h-[300px]">
+          <canvas ref="tempChartRef" class="w-full h-full" />
         </div>
 
         <p v-else class="text-ink-400 text-sm text-center py-8">
@@ -90,8 +90,8 @@
           <div class="w-6 h-6 border-2 border-heat-500 border-t-transparent rounded-full animate-spin" />
         </div>
 
-        <div v-else-if="climateData.precipitation.length > 0">
-          <canvas ref="precipChartRef" class="w-full h-[250px]" />
+        <div v-else-if="climateData.precipitation.length > 0" class="h-[250px]">
+          <canvas ref="precipChartRef" class="w-full h-full" />
         </div>
       </div>
     </article>
@@ -256,10 +256,13 @@ function renderPrecipChart() {
   })
 }
 
-watch(() => climateData.value.temperatures, () => {
-  nextTick(() => {
-    renderTempChart()
-    renderPrecipChart()
-  })
-}, { deep: true })
+// Render when both the canvas ref AND the data are available
+watchEffect(() => {
+  const hasTemp = climateData.value.temperatures.length > 0
+  const hasPrecip = climateData.value.precipitation.length > 0
+  const tempCanvas = tempChartRef.value
+  const precipCanvas = precipChartRef.value
+  if (hasTemp && tempCanvas) renderTempChart()
+  if (hasPrecip && precipCanvas) renderPrecipChart()
+}, { flush: 'post' })
 </script>

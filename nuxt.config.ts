@@ -28,6 +28,7 @@ export default defineNuxtConfig({
     anthropicApiKey: process.env.ANTHROPIC_API_KEY || '',
     mistralApiKey: process.env.MISTRAL_API_KEY || '',
     googleAiApiKey: process.env.GOOGLE_AI_API_KEY || '',
+    googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY || '',
   },
   tailwindcss: {
     config: {

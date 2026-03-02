@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-ink-50 font-body text-ink-800 relative">
+  <div class="min-h-screen bg-ink-50 font-body text-ink-800 relative flex flex-col">
     <!-- Subtle grain overlay -->
     <div class="fixed inset-0 pointer-events-none opacity-[0.03] z-50 mix-blend-multiply" style="background-image: url('data:image/svg+xml,%3Csvg viewBox=%220 0 256 256%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22noise%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.9%22 numOctaves=%224%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23noise)%22/%3E%3C/svg%3E');" />
 
@@ -32,93 +32,94 @@
             <CommuneSearch compact />
           </div>
           <a
-            href="https://editionsdelaube.fr/catalogue_de_livres/gerer-linevitable-reperes-face-a-la-derive-climatique/"
+            href="https://mcp.data.gouv.fr"
             target="_blank"
             rel="noopener"
-            class="flex items-center gap-1.5 text-xs text-ink-500 hover:text-ink-700 transition-colors"
+            class="flex items-center gap-2 text-xs hover:opacity-70 transition-opacity" style="color: #333"
           >
-            Le livre
+            <span class="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse flex-shrink-0" />
+            Serveur MCP expérimental data.gouv.fr
             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 17L17 7M17 7H7M17 7v10" /></svg>
           </a>
-          <span class="text-ink-200">|</span>
-          <span class="text-[11px] text-ink-400 tracking-wide uppercase">Données ouvertes</span>
         </nav>
       </div>
     </header>
 
+    <main class="flex-grow">
     <!-- Hero + Search (landing only) -->
     <section v-if="!selectedCommune" class="relative overflow-visible z-20">
-      <!-- Heat gradient bar at top -->
-      <div class="h-1 w-full bg-gradient-to-r from-green-500 via-heat-400 to-crisis-600" />
+      <div class="max-w-6xl mx-auto px-5 pt-12 pb-10">
+        <div class="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-10 lg:gap-16 items-start">
 
-      <div class="max-w-6xl mx-auto px-5 pt-10 pb-8">
-        <div class="flex flex-col lg:flex-row gap-10 lg:gap-12 items-start">
-          <!-- Left column: title + search + chat input -->
-          <div class="flex-[3] min-w-0">
+          <!-- Left: headline + inputs -->
+          <div>
             <p class="text-xs uppercase tracking-[0.2em] text-heat-600 font-semibold mb-4 animate-fade-up">Explorer les données</p>
-            <h2 class="font-display text-4xl sm:text-5xl lg:text-[2.75rem] text-ink-900 leading-[1.1] mb-4 animate-fade-up-1">
-              Votre commune face à la dérive climatique
+            <h2 class="font-display text-4xl sm:text-5xl text-ink-900 leading-[1.08] mb-4 animate-fade-up-1">
+              Votre commune face<br class="hidden sm:block"> à la dérive climatique
             </h2>
-            <p class="text-lg text-ink-500 leading-relaxed max-w-xl mb-6 animate-fade-up-2">
+            <p class="text-base text-ink-500 leading-relaxed max-w-lg mb-7 animate-fade-up-2">
               Risques, projections, catastrophes naturelles&nbsp;: explorez les données publiques de votre territoire. Un outil compagnon du livre <em class="font-display text-ink-700">Gérer l'inévitable</em>.
             </p>
 
-            <div class="animate-fade-up-3">
+            <div class="relative z-10 animate-fade-up-3">
               <CommuneSearch />
             </div>
 
             <!-- Compact chat input -->
-            <form class="mt-4 flex gap-2 animate-fade-up-3" @submit.prevent="sendLandingChat">
-              <input
-                v-model="landingChatInput"
-                type="text"
-                placeholder="Posez une question sur les données climatiques..."
-                class="flex-1 px-4 py-2.5 text-sm font-body bg-white border border-ink-300 text-ink-900 placeholder-ink-400 rounded-sm focus:border-ink-600 outline-none transition-all"
-              />
-              <button
-                type="submit"
-                :disabled="!landingChatInput.trim()"
-                class="px-4 py-2.5 bg-ink-800 text-white text-sm rounded-sm hover:bg-ink-900 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              >
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" /></svg>
-              </button>
-            </form>
+            <div class="mt-4 animate-fade-up-3">
+              <div class="flex items-center gap-2 mb-2">
+                <svg class="w-3 h-3 text-ink-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" /></svg>
+                <span class="text-[10px] text-ink-400 uppercase tracking-widest">ou posez une question directement</span>
+              </div>
+              <form class="flex gap-2" @submit.prevent="sendLandingChat">
+                <input
+                  v-model="landingChatInput"
+                  type="text"
+                  placeholder="Posez une question sur les données climatiques…"
+                  class="flex-1 px-4 py-2.5 text-sm font-body bg-ink-100 border border-ink-200 text-ink-900 placeholder-ink-400 rounded-sm focus:bg-white focus:border-ink-500 outline-none transition-all"
+                />
+                <button
+                  type="submit"
+                  :disabled="!landingChatInput.trim()"
+                  class="px-4 py-2.5 bg-ink-800 text-white text-sm rounded-sm hover:bg-ink-900 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" /></svg>
+                </button>
+              </form>
+            </div>
           </div>
 
-          <!-- Right column: value cards -->
-          <div class="flex-[2] w-full lg:pt-6 animate-fade-up-2">
-            <div class="flex flex-col gap-px bg-ink-300 border border-ink-300 rounded-sm overflow-hidden shadow-sm">
-              <div class="bg-white p-5">
-                <div class="w-9 h-9 border border-ink-300 bg-ink-50 rounded-sm flex items-center justify-center mb-3">
-                  <span class="font-display text-base text-ink-800">01</span>
-                </div>
-                <h3 class="font-display text-base text-ink-800 mb-1.5">Risques &amp; projections</h3>
-                <p class="text-sm text-ink-600 leading-relaxed">Températures, précipitations, scénarios GIEC à l'échelle de votre commune.</p>
+          <!-- Right: compact feature cards -->
+          <div class="animate-fade-up-2 border border-ink-200 divide-y divide-ink-200 rounded-sm self-start">
+            <div class="px-5 py-4 flex gap-4 items-start">
+              <span class="font-mono text-[10px] text-ink-300 border border-ink-200 rounded-sm px-1.5 py-0.5 mt-0.5 flex-shrink-0 leading-none tracking-wider">01</span>
+              <div>
+                <p class="font-display text-[0.9rem] text-ink-900 leading-snug">Risques &amp; projections</p>
+                <p class="text-xs text-ink-400 mt-1 leading-relaxed">Températures, précipitations, scénarios GIEC à l'échelle de votre commune.</p>
               </div>
-              <div class="bg-white p-5">
-                <div class="w-9 h-9 border border-ink-300 bg-ink-50 rounded-sm flex items-center justify-center mb-3">
-                  <span class="font-display text-base text-ink-800">02</span>
-                </div>
-                <h3 class="font-display text-base text-ink-800 mb-1.5">Gouvernance locale</h3>
-                <p class="text-sm text-ink-600 leading-relaxed">Catastrophes naturelles sous le mandat, élus sortants et adaptation du territoire.</p>
+            </div>
+            <div class="px-5 py-4 flex gap-4 items-start">
+              <span class="font-mono text-[10px] text-ink-300 border border-ink-200 rounded-sm px-1.5 py-0.5 mt-0.5 flex-shrink-0 leading-none tracking-wider">02</span>
+              <div>
+                <p class="font-display text-[0.9rem] text-ink-900 leading-snug">Gouvernance locale</p>
+                <p class="text-xs text-ink-400 mt-1 leading-relaxed">Catastrophes naturelles sous le mandat, élus sortants et adaptation du territoire.</p>
               </div>
-              <div class="bg-white p-5">
-                <div class="w-9 h-9 border border-ink-300 bg-ink-50 rounded-sm flex items-center justify-center mb-3">
-                  <span class="font-display text-base text-ink-800">03</span>
-                </div>
-                <h3 class="font-display text-base text-ink-800 mb-1.5">Interrogez les données</h3>
-                <p class="text-sm text-ink-600 leading-relaxed">Posez vos questions sur les données publiques avec l'assistant IA.</p>
+            </div>
+            <div class="px-5 py-4 flex gap-4 items-start">
+              <span class="font-mono text-[10px] text-ink-300 border border-ink-200 rounded-sm px-1.5 py-0.5 mt-0.5 flex-shrink-0 leading-none tracking-wider">03</span>
+              <div>
+                <p class="font-display text-[0.9rem] text-ink-900 leading-snug">Interrogez les données</p>
+                <p class="text-xs text-ink-400 mt-1 leading-relaxed">Posez vos questions sur les données publiques avec l'assistant IA.</p>
               </div>
             </div>
           </div>
+
         </div>
       </div>
     </section>
 
     <!-- Selected commune content -->
     <template v-if="selectedCommune">
-      <!-- Heat gradient bar -->
-      <div class="h-1 w-full bg-gradient-to-r from-green-500 via-heat-400 to-crisis-600" />
       <!-- Commune header strip -->
       <section class="border-b border-ink-200 bg-white/60 animate-fade-in">
         <div class="max-w-6xl mx-auto px-5 py-4 flex flex-col sm:flex-row items-start sm:items-center gap-4">
@@ -154,12 +155,12 @@
       <!-- Tab content -->
       <section class="max-w-6xl mx-auto px-5 py-8">
         <!-- Tab: Assistant IA -->
-        <div v-if="activeTab === 'assistant'" class="animate-fade-up">
+        <div v-if="activeTab === 'assistant'" key="tab-assistant" class="animate-fade-up">
           <McpChatbot inline />
         </div>
 
         <!-- Tab: Elections x Climate -->
-        <div v-if="activeTab === 'elections'" class="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-fade-up">
+        <div v-if="activeTab === 'elections'" key="tab-elections" class="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-fade-up">
           <div class="lg:col-span-8 space-y-8">
             <RiskMap :commune="selectedCommune" :risk-data="riskData" />
             <ElectionsPanel :projections="climateData.projections" />
@@ -170,12 +171,13 @@
         </div>
 
         <!-- Tab: Climate Trends -->
-        <div v-if="activeTab === 'climate'" class="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-fade-up">
+        <div v-if="activeTab === 'climate'" key="tab-climate" class="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-fade-up">
           <div class="lg:col-span-8 space-y-8">
             <ClimateSimulation
               :commune-name="selectedCommune.nom"
               :region-name="selectedCommune.region?.nom || ''"
               :risks="riskData.riskTypes"
+              :coordinates="selectedCommune.centre?.coordinates"
             />
             <ClimateChart />
           </div>
@@ -186,36 +188,24 @@
       </section>
     </template>
 
+    </main>
+
     <!-- Footer -->
     <footer class="border-t border-ink-200 bg-white mt-8">
-      <div class="max-w-6xl mx-auto px-5 py-10">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div>
-            <p class="font-display italic text-ink-800 mb-2">Gérer l'inévitable</p>
-            <p class="text-sm text-ink-500 leading-relaxed">
-              Repères face à la dérive climatique.
-              Antoine Poincaré &amp; Clément Jeanneau.
-              <a href="https://editionsdelaube.fr/catalogue_de_livres/gerer-linevitable-reperes-face-a-la-derive-climatique/" target="_blank" rel="noopener" class="text-ink-700 underline decoration-ink-300 hover:decoration-heat-400 transition-colors">
-                Éditions de l'Aube, janvier 2026.
-              </a>
-            </p>
-          </div>
-          <div>
-            <p class="font-display text-ink-800 mb-2">Sources de données</p>
-            <p class="text-sm text-ink-500 leading-relaxed">
-              geo.api.gouv.fr &middot; data.gouv.fr &middot; Géorisques &middot; Météo-France (DRIAS)
-            </p>
-          </div>
-          <div>
-            <p class="font-display text-ink-800 mb-2">Technologies</p>
-            <p class="text-sm text-ink-500 leading-relaxed">
-              IA&nbsp;: Claude&nbsp;Opus (Anthropic) &middot; Images&nbsp;: Nano&nbsp;Banana&nbsp;Pro (Google) &middot; Données&nbsp;: MCP data.gouv.fr
-            </p>
-          </div>
-        </div>
-        <div class="mt-8 pt-6 border-t border-ink-100">
-          <p class="text-xs text-ink-400 text-center">
-            Projet open-source &middot; Les projections climatiques sont indicatives et basées sur les modèles DRIAS
+      <div class="max-w-6xl mx-auto px-5 py-6">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <a href="https://editionsdelaube.fr/catalogue_de_livres/gerer-linevitable-reperes-face-a-la-derive-climatique/" target="_blank" rel="noopener" class="flex items-center gap-3 group">
+            <img
+              src="https://editionsdelaube.fr/wp-content/uploads/Document-special-produit-unique-visuel.-hd-5-20-652x1024.jpg"
+              alt="Couverture — Gérer l'inévitable"
+              class="w-10 rounded-sm shadow-sm"
+            />
+            <span class="text-sm text-ink-500 group-hover:text-ink-700 transition-colors">
+              <span class="font-display italic text-ink-700">Gérer l'inévitable</span> &middot; A. Poincaré &amp; C. Jeanneau &middot; Éd. de l'Aube, 2026
+            </span>
+          </a>
+          <p class="text-xs text-ink-400">
+            Données publiques françaises &middot; Projections indicatives (DRIAS)
           </p>
         </div>
       </div>
@@ -243,9 +233,9 @@ function sendLandingChat() {
 }
 
 const tabs = [
-  { id: 'assistant' as const, label: 'Assistant IA' },
-  { id: 'climate' as const, label: "L'évolution climatique" },
-  { id: 'elections' as const, label: 'Gouvernance locale' },
+  { id: 'assistant' as const, label: 'Posez vos questions à l\'IA' },
+  { id: 'climate' as const, label: 'Températures & scénarios 2050' },
+  { id: 'elections' as const, label: 'Municipales 2026' },
 ]
 
 // Load commune from URL query

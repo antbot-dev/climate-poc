@@ -380,7 +380,25 @@ Le livre "Gérer l'inévitable" d'Antoine Poincaré et Clément Jeanneau (Éditi
     const textBlocks = response.content.filter(
       (block): block is Anthropic.TextBlock => block.type === 'text',
     )
-    const reply = textBlocks.map((b) => b.text).join('\n')
+    let reply = textBlocks.map((b) => b.text).join('\n')
+
+    // If loop exhausted without producing text (stop_reason still 'tool_use'),
+    // force a final text-only response
+    if (!reply) {
+      messages.push({ role: 'assistant', content: response.content })
+      const forced = await anthropic.messages.create({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 2048,
+        system: systemPrompt,
+        tool_choice: { type: 'none' },
+        tools: allTools,
+        messages,
+      })
+      reply = forced.content
+        .filter((block): block is Anthropic.TextBlock => block.type === 'text')
+        .map((b) => b.text)
+        .join('\n')
+    }
 
     return { reply }
   } catch (e: any) {

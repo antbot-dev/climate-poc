@@ -30,21 +30,83 @@
       </div>
     </div>
 
-    <!-- Generated image -->
+    <!-- Image area -->
     <div class="relative">
-      <div v-if="loading" class="aspect-[16/9] bg-ink-800 flex items-center justify-center">
+      <div v-if="loading" class="aspect-square bg-ink-800 flex items-center justify-center">
         <div class="text-center">
           <div class="w-8 h-8 border-2 border-heat-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
           <p class="text-sm text-ink-400">Génération en cours...</p>
-          <p class="text-[10px] text-ink-500 mt-1">Nano Banana Pro</p>
+          <p class="text-[10px] text-ink-500 mt-1">Street View + Gemini Flash</p>
         </div>
       </div>
 
+      <!-- Before/After slider -->
+      <div
+        v-else-if="generatedImage && originalImage"
+        ref="sliderRef"
+        class="relative aspect-square select-none cursor-col-resize overflow-hidden"
+        @mousedown="startDrag"
+        @touchstart.passive="startDrag"
+      >
+        <!-- Before (original Street View) — full background -->
+        <img
+          :src="originalImage"
+          :alt="`${communeName} — Aujourd'hui`"
+          class="absolute inset-0 w-full h-full object-cover"
+          draggable="false"
+        />
+
+        <!-- After (transformed 2050) — clipped by slider position -->
+        <div
+          class="absolute inset-0 overflow-hidden"
+          :style="{ clipPath: `inset(0 0 0 ${sliderPercent}%)` }"
+        >
+          <img
+            :src="generatedImage"
+            :alt="`${communeName} en 2050 — ${currentScenario.warming}`"
+            class="absolute inset-0 w-full h-full object-cover"
+            draggable="false"
+          />
+        </div>
+
+        <!-- Slider handle -->
+        <div
+          class="absolute top-0 bottom-0 z-10 pointer-events-none"
+          :style="{ left: `${sliderPercent}%` }"
+        >
+          <div class="absolute inset-y-0 -translate-x-1/2 w-0.5 bg-white shadow-[0_0_8px_rgba(0,0,0,0.5)]" />
+          <div class="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm shadow-lg flex items-center justify-center">
+            <svg class="w-5 h-5 text-ink-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8 9l-3 3 3 3m8-6l3 3-3 3" />
+            </svg>
+          </div>
+        </div>
+
+        <!-- Labels -->
+        <div class="absolute top-3 left-3 z-10 px-2 py-1 bg-ink-900/70 backdrop-blur-sm rounded-sm">
+          <span class="text-[10px] uppercase tracking-wider font-semibold text-white">Aujourd'hui</span>
+        </div>
+        <div class="absolute top-3 right-3 z-10 px-2 py-1 bg-heat-600/80 backdrop-blur-sm rounded-sm">
+          <span class="text-[10px] uppercase tracking-wider font-semibold text-white">2050 · {{ currentScenario.warming }}</span>
+        </div>
+
+        <!-- Bottom info overlay -->
+        <div class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-ink-950/90 via-ink-950/40 to-transparent p-5 pointer-events-none">
+          <p class="text-white text-sm font-medium">
+            {{ communeName }} &mdash; Scénario {{ currentScenario.label }}
+          </p>
+          <p v-if="imageAddress" class="text-white/50 text-xs mt-1">
+            {{ imageAddress }}
+          </p>
+        </div>
+      </div>
+
+      <!-- Generated image only (no Street View original = no slider) -->
       <div v-else-if="generatedImage" class="relative">
         <img
           :src="generatedImage"
           :alt="`${communeName} en 2050 — ${currentScenario.warming}`"
-          class="w-full aspect-[16/9] object-cover"
+          class="w-full aspect-square object-cover"
         />
         <div class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-ink-950/90 via-ink-950/40 to-transparent p-5">
           <p class="text-white text-sm font-medium">
@@ -56,7 +118,7 @@
         </div>
       </div>
 
-      <div v-else-if="error" class="aspect-[16/9] bg-ink-800 flex items-center justify-center p-6">
+      <div v-else-if="error" class="aspect-square bg-ink-800 flex items-center justify-center p-6">
         <div class="text-center">
           <p class="text-heat-400 text-sm mb-3">{{ error }}</p>
           <button
@@ -68,8 +130,7 @@
         </div>
       </div>
 
-      <div v-else class="aspect-[16/9] bg-ink-800 flex items-center justify-center relative overflow-hidden">
-        <!-- Subtle heat shimmer background -->
+      <div v-else class="aspect-square bg-ink-800 flex items-center justify-center relative overflow-hidden">
         <div class="absolute inset-0 bg-gradient-to-t from-heat-900/10 to-transparent" />
         <button
           class="relative px-6 py-3 bg-heat-600 text-white rounded-sm text-sm font-medium hover:bg-heat-500 transition-colors flex items-center gap-2.5"
@@ -93,7 +154,9 @@
     <!-- Caption -->
     <div class="px-6 py-3 border-t border-ink-700/50">
       <p class="text-[10px] text-ink-500 leading-relaxed">
-        Image : Nano Banana Pro (Google) &middot; Illustration conceptuelle, non prédictive &middot; Projections DRIAS / Météo-France
+        Image : {{ imageSource === 'streetview' ? 'Google Street View + Gemini Flash (transformation IA)' : 'Gemini Flash (Google)' }}
+        <template v-if="imageAddress"> &middot; {{ imageAddress }}</template>
+        &middot; Illustration conceptuelle, non prédictive &middot; Projections DRIAS / Météo-France
       </p>
     </div>
   </div>
@@ -104,6 +167,7 @@ const props = defineProps<{
   communeName: string
   regionName: string
   risks: string[]
+  coordinates?: [number, number]
 }>()
 
 const scenarios = [
@@ -114,12 +178,45 @@ const scenarios = [
 
 const selectedScenario = ref('rcp45')
 const generatedImage = ref<string | null>(null)
+const originalImage = ref<string | null>(null)
 const description = ref('')
+const imageSource = ref<'streetview' | 'generated' | ''>('')
+const imageAddress = ref('')
 const loading = ref(false)
 const error = ref<string | null>(null)
 
-// Cache generated images: key = "communeName::scenarioId"
-const imageCache = new Map<string, { image: string; description: string }>()
+// Before/After slider
+const sliderRef = ref<HTMLElement | null>(null)
+const sliderPercent = ref(50)
+let isDragging = false
+
+function startDrag(e: MouseEvent | TouchEvent) {
+  isDragging = true
+  updateSlider(e)
+  const onMove = (ev: MouseEvent | TouchEvent) => { if (isDragging) updateSlider(ev) }
+  const onEnd = () => {
+    isDragging = false
+    document.removeEventListener('mousemove', onMove)
+    document.removeEventListener('touchmove', onMove)
+    document.removeEventListener('mouseup', onEnd)
+    document.removeEventListener('touchend', onEnd)
+  }
+  document.addEventListener('mousemove', onMove)
+  document.addEventListener('touchmove', onMove, { passive: true })
+  document.addEventListener('mouseup', onEnd)
+  document.addEventListener('touchend', onEnd)
+}
+
+function updateSlider(e: MouseEvent | TouchEvent) {
+  if (!sliderRef.value) return
+  const rect = sliderRef.value.getBoundingClientRect()
+  const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
+  const pct = ((clientX - rect.left) / rect.width) * 100
+  sliderPercent.value = Math.max(2, Math.min(98, pct))
+}
+
+// Cache
+const imageCache = new Map<string, { image: string; originalImage: string; description: string; source: string; address: string }>()
 
 function cacheKey() {
   return `${props.communeName}::${selectedScenario.value}`
@@ -135,9 +232,15 @@ function selectScenario(id: string) {
   const cached = imageCache.get(`${props.communeName}::${id}`)
   if (cached) {
     generatedImage.value = cached.image
+    originalImage.value = cached.originalImage || null
     description.value = cached.description
+    imageSource.value = cached.source as any
+    imageAddress.value = cached.address
   } else {
     generatedImage.value = null
+    originalImage.value = null
+    imageSource.value = ''
+    imageAddress.value = ''
   }
 }
 
@@ -146,16 +249,20 @@ async function generate() {
   const cached = imageCache.get(key)
   if (cached) {
     generatedImage.value = cached.image
+    originalImage.value = cached.originalImage || null
     description.value = cached.description
+    imageSource.value = cached.source as any
+    imageAddress.value = cached.address
     return
   }
 
   loading.value = true
   error.value = null
   generatedImage.value = null
+  originalImage.value = null
 
   try {
-    const response = await $fetch<{ image: string; description: string }>('/api/generate-image', {
+    const response = await $fetch<{ image: string; description: string; source?: string; address?: string; originalImage?: string }>('/api/generate-image', {
       method: 'POST',
       body: {
         communeName: props.communeName,
@@ -166,8 +273,18 @@ async function generate() {
     })
 
     generatedImage.value = response.image
+    originalImage.value = response.originalImage || null
     description.value = response.description
-    imageCache.set(key, { image: response.image, description: response.description })
+    imageSource.value = (response.source === 'streetview' ? 'streetview' : 'generated') as any
+    imageAddress.value = response.address || ''
+    sliderPercent.value = 50
+    imageCache.set(key, {
+      image: response.image,
+      originalImage: response.originalImage || '',
+      description: response.description,
+      source: response.source || 'generated',
+      address: response.address || '',
+    })
   } catch (e: any) {
     error.value = e.data?.message || 'Impossible de générer l\'image.'
   } finally {

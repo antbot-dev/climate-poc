@@ -7,8 +7,21 @@ const messages = ref<Message[]>([])
 const isLoading = ref(false)
 const input = ref('')
 
+// Reset chat when commune changes — set up once at module level via first call
+let communeWatchSetup = false
+
 export function useChat() {
   const { selectedCommune } = useCommune()
+
+  if (!communeWatchSetup) {
+    communeWatchSetup = true
+    watch(selectedCommune, (newCommune, oldCommune) => {
+      if (newCommune?.code !== oldCommune?.code) {
+        messages.value = []
+        input.value = ''
+      }
+    })
+  }
 
   const suggestions = computed(() => {
     const commune = selectedCommune.value?.nom
