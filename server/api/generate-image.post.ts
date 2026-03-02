@@ -1,5 +1,5 @@
 // Climate simulation image generation endpoint
-// Pipeline: Street View photo → Gemini multimodal transformation → fallback text-only
+// Pipeline: Google Places park photo → Gemini multimodal transformation → fallback text-only
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
@@ -14,24 +14,45 @@ export default defineEventHandler(async (event) => {
   }
 
   const body = await readBody(event)
-  const { communeName, regionName, risks, scenario } = body
+  const { communeName, regionName, risks, scenario, photoReference: bodyPhotoRef, placeName: bodyPlaceName } = body
 
   if (!communeName) {
     throw createError({ statusCode: 400, message: 'communeName requis' })
   }
 
-  const warming = scenario === 'rcp26' ? '+1.2°C' : scenario === 'rcp85' ? '+4.8°C' : '+2.7°C'
+  const warming = scenario === 'rcp85' ? '+4.8°C' : '+2.7°C'
   const riskContext = risks?.length
     ? `The area is particularly affected by: ${risks.join(', ')}.`
     : ''
 
-  // --- Step 1: Try to fetch a Street View photo of the town center ---
-  let streetViewBase64: string | null = null
-  let streetViewAddress = ''
+  // --- Step 1: Get a place photo (from picker selection or auto-search) ---
+  let placePhotoBase64: string | null = null
+  let placeName = ''
 
-  if (mapsKey) {
+  if (bodyPhotoRef && bodyPlaceName && mapsKey) {
+    // User picked a specific place — fetch its 800px photo directly
+    placeName = bodyPlaceName
     try {
-      // Geocode the commune name to get precise center coordinates
+      const photoResponse = await fetch(
+        `https://maps.googleapis.com/maps/api/place/photo?photo_reference=${bodyPhotoRef}&maxwidth=800&key=${mapsKey}`,
+        { redirect: 'follow' },
+      )
+      if (photoResponse.ok) {
+        const buffer = new Uint8Array(await photoResponse.arrayBuffer())
+        let binary = ''
+        for (let i = 0; i < buffer.length; i++) {
+          binary += String.fromCharCode(buffer[i])
+        }
+        placePhotoBase64 = btoa(binary)
+      }
+    } catch (e: any) {
+      console.warn('Photo reference fetch failed, falling back to auto-search:', e.message)
+    }
+  }
+
+  // Fallback: auto-search for best park (existing logic)
+  if (!placePhotoBase64 && mapsKey) {
+    try {
       const geocode = await $fetch<any>(
         'https://maps.googleapis.com/maps/api/geocode/json',
         {
@@ -41,60 +62,52 @@ export default defineEventHandler(async (event) => {
 
       const geoLocation = geocode.results?.[0]?.geometry?.location
       if (geoLocation) {
-        const svLocation = `${geoLocation.lat},${geoLocation.lng}`
-
-        // Check Street View coverage at those coordinates (metadata is free)
-        const metadata = await $fetch<any>(
-          'https://maps.googleapis.com/maps/api/streetview/metadata',
+        const places = await $fetch<any>(
+          'https://maps.googleapis.com/maps/api/place/nearbysearch/json',
           {
-            params: { location: svLocation, key: mapsKey },
+            params: {
+              location: `${geoLocation.lat},${geoLocation.lng}`,
+              radius: 3000,
+              type: 'park',
+              key: mapsKey,
+            },
           },
         )
 
-        if (metadata.status === 'OK') {
-          // Reverse geocode the actual SV location to get the street name
-          const svLat = metadata.location?.lat || geoLocation.lat
-          const svLng = metadata.location?.lng || geoLocation.lng
-          try {
-            const reverseGeo = await $fetch<any>(
-              'https://maps.googleapis.com/maps/api/geocode/json',
-              {
-                params: { latlng: `${svLat},${svLng}`, key: mapsKey, language: 'fr' },
-              },
-            )
-            const components = reverseGeo.results?.[0]?.address_components || []
-            const route = components.find((c: any) => c.types?.includes('route'))?.long_name
-            const locality = components.find((c: any) => c.types?.includes('locality'))?.long_name
-            streetViewAddress = [route, locality].filter(Boolean).join(', ')
-          } catch {
-            streetViewAddress = communeName
-          }
+        const bestPlace = (places.results || [])
+          .filter((p: any) => p.photos?.length > 0)
+          .sort((a: any, b: any) => (b.user_ratings_total || 0) - (a.user_ratings_total || 0))
+          [0]
 
-          const imageResponse = await fetch(
-            `https://maps.googleapis.com/maps/api/streetview?location=${svLocation}&size=640x640&fov=100&key=${mapsKey}`,
+        if (bestPlace?.photos?.[0]?.photo_reference) {
+          placeName = bestPlace.name || ''
+
+          const photoResponse = await fetch(
+            `https://maps.googleapis.com/maps/api/place/photo?photo_reference=${bestPlace.photos[0].photo_reference}&maxwidth=800&key=${mapsKey}`,
+            { redirect: 'follow' },
           )
 
-          if (imageResponse.ok) {
-            const buffer = new Uint8Array(await imageResponse.arrayBuffer())
+          if (photoResponse.ok) {
+            const buffer = new Uint8Array(await photoResponse.arrayBuffer())
             let binary = ''
             for (let i = 0; i < buffer.length; i++) {
               binary += String.fromCharCode(buffer[i])
             }
-            streetViewBase64 = btoa(binary)
+            placePhotoBase64 = btoa(binary)
           }
         }
       }
     } catch (e: any) {
-      console.warn('Street View fetch failed, falling back to text-only:', e.message)
+      console.warn('Places photo fetch failed, falling back to text-only:', e.message)
     }
   }
 
   // --- Step 2: Generate image with Gemini ---
   try {
-    if (streetViewBase64) {
+    if (placePhotoBase64) {
       // Multimodal: transform real photo
-      const result = await generateWithStreetView(aiKey, streetViewBase64, communeName, regionName, warming, riskContext)
-      return { ...result, address: streetViewAddress, originalImage: `data:image/jpeg;base64,${streetViewBase64}` }
+      const result = await generateFromPhoto(aiKey, placePhotoBase64, communeName, regionName, warming, riskContext, placeName)
+      return { ...result, address: `${placeName}, ${communeName}`, originalImage: `data:image/jpeg;base64,${placePhotoBase64}` }
     }
     // Text-only: generate from scratch
     return await generateTextOnly(aiKey, communeName, regionName, warming, riskContext, risks)
@@ -102,7 +115,7 @@ export default defineEventHandler(async (event) => {
     console.error('Gemini generation error:', e?.data || e.message)
 
     // If multimodal failed, try text-only as intermediate fallback
-    if (streetViewBase64) {
+    if (placePhotoBase64) {
       try {
         console.warn('Multimodal failed, retrying text-only')
         return await generateTextOnly(aiKey, communeName, regionName, warming, riskContext, risks)
@@ -126,20 +139,40 @@ export default defineEventHandler(async (event) => {
   }
 })
 
-// --- Multimodal: Street View + Gemini transformation ---
-async function generateWithStreetView(
+// --- Multimodal: real photo + Gemini transformation ---
+async function generateFromPhoto(
   apiKey: string,
   imageBase64: string,
   communeName: string,
   regionName: string,
   warming: string,
   riskContext: string,
+  locationName: string,
 ) {
-  const prompt = `Transform this real photograph to show what this exact location would look like in 2050 under a climate warming scenario of ${warming} above pre-industrial levels.
+  const isModerate = warming === '+2.7°C'
 
-Keep the same viewpoint, buildings, and street layout — but apply realistic climate impacts: ${riskContext} Show effects like: drought-stressed vegetation, heat haze, yellowed/dried grass, cracked pavement, sun-bleached facades, adapted infrastructure (sun shading, water barriers), dried riverbeds or flooding depending on risks. Style: realistic, documentary, same camera angle.
+  const moderateInstructions = `Apply SUBTLE but visible modifications to show a harsh late-summer drought:
+- Vegetation: grass yellowed in patches (not uniformly dead), some green remains in shaded areas. Trees show drought stress — wilted, sparse foliage, some early leaf drop — but most still have leaves.
+- Water bodies: slightly lower levels, some exposed banks or mudflats at the edges.
+- Sky: still mostly blue but hazier, with a warm diffused light. Slightly washed-out, like a very hot August day. Do NOT turn the sky yellow or orange.
+- Ground/paths: drier, some cracks in exposed earth, dusty appearance.
+- CRITICAL: Maintain realistic, natural color balance. Do NOT apply a uniform yellow, orange, or amber color filter. The image must look like a real photograph taken during a severe summer heatwave, not a color-graded disaster movie.`
 
-ALSO write 3-4 sentences IN FRENCH describing the concrete situation for the residents of ${communeName} (${regionName || 'France'}) under this ${warming} warming scenario by 2050. Be factual and specific to this commune.`
+  const severeInstructions = `Apply CLEAR modifications to show severe climate stress, like a prolonged extreme drought:
+- Vegetation: most grass brown and dry, trees with significant leaf loss — thin canopy, many bare branches, remaining leaves brown or wilted. Some patches of resistant green may survive.
+- Water bodies: visibly reduced levels, wide exposed dry banks, cracked mud where water used to be.
+- Sky: heat haze visible, warm pale tones, slightly milky/hazy atmosphere. Can have amber tones near the horizon but the sky should not be a solid orange wall.
+- Ground/paths: cracked, parched, dusty earth tones.
+- CRITICAL: Keep the image photorealistic. Think "severe drought documentary photography", not post-apocalyptic. Avoid applying a uniform color filter over the entire image. Natural color variation should remain.`
+
+  const prompt = `Transform this photograph of ${locationName} in ${communeName} (${regionName || 'France'}) to realistically visualize climate change impacts in 2050 under ${warming} warming.
+
+${isModerate ? moderateInstructions : severeInstructions}
+${riskContext}
+
+The changes should be clearly visible in a before/after comparison while remaining scientifically plausible and photorealistic. Keep the same framing and recognizable landmarks.
+
+ALSO write IN FRENCH a detailed description (4-6 sentences). Start with "Voici à quoi pourrait ressembler ${locationName} en 2050 avec un réchauffement de ${warming} :". Describe each visible change (vegetation, water, ground, atmosphere). End with concrete impacts for ${communeName} residents.`
 
   const response = await $fetch<any>(
     'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent',
@@ -182,7 +215,7 @@ ALSO write 3-4 sentences IN FRENCH describing the concrete situation for the res
   return {
     image: `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`,
     description: fullText || `${communeName} en 2050 (scénario ${warming})`,
-    source: 'streetview',
+    source: 'places',
   }
 }
 
@@ -195,11 +228,17 @@ async function generateTextOnly(
   riskContext: string,
   risks?: string[],
 ) {
+  const isModerate = warming === '+2.7°C'
+
+  const visualStyle = isModerate
+    ? `Show a harsh late-summer scene: grass yellowed in patches but some green remains, trees with drought-stressed sparse foliage, slightly hazy blue sky with warm diffused light, drier ground. The scene should look like a severe August heatwave — uncomfortable but realistic. Do NOT apply a uniform yellow/orange color filter.`
+    : `Show a severe prolonged drought: most grass brown, trees with significant leaf loss and bare branches, heat haze in the atmosphere with warm pale tones, cracked dry ground, reduced water levels. Think documentary photography of extreme drought — clear impact but still photorealistic. Avoid uniform color grading.`
+
   const prompt = `Generate an image AND a text description.
 
-IMAGE: A realistic photographic view of the French commune of ${communeName} (${regionName || 'France'}) in the year 2050 under a climate warming scenario of ${warming} above pre-industrial levels. Show realistic climate impacts: ${riskContext} The scene should show recognizable French urban/rural architecture adapted to extreme heat — drought-resistant vegetation, sun shading structures, dried riverbed or flooded streets depending on risks, yellowed grass, intense sunlight with haze. Style: documentary photography, golden hour, slightly dystopian but realistic. No text overlays.
+IMAGE: A realistic photographic view of the French commune of ${communeName} (${regionName || 'France'}) in 2050 under ${warming} warming. ${visualStyle} ${riskContext} Show recognizable French architecture. Style: documentary photography, natural lighting, photorealistic. No text overlays.
 
-TEXT: Write 3-4 sentences IN FRENCH describing the concrete situation for the residents of ${communeName} under this ${warming} warming scenario by 2050. Cover: (1) the main climate risks specific to this commune (${risks?.join(', ') || 'risques climatiques généraux'}), (2) what daily life concretely looks like (summer temperatures, water availability, outdoor activities, agriculture if rural), (3) one specific adaptation challenge or change the municipality would face. Be factual, specific to this commune and its geography, and grounded — not generic or alarmist.`
+TEXT: Write IN FRENCH a detailed description (4-6 sentences) of the generated image. Start by naming the commune ("Voici à quoi pourrait ressembler ${communeName} en 2050 avec un réchauffement de ${warming} :"). Then describe each visible change: vegetation state, water levels, ground condition, atmosphere. Mention the specific risks (${risks?.join(', ') || 'risques climatiques généraux'}) and their visible effects. End with concrete impacts for residents (temperatures, water restrictions, daily life). Be specific to ${communeName} — not generic.`
 
   const response = await $fetch<any>(
     'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent',
