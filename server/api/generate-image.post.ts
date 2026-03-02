@@ -20,7 +20,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: 'communeName requis' })
   }
 
-  const warming = scenario === 'rcp85' ? '+4.8°C' : '+2.7°C'
+  const warming = scenario === 'rcp26' ? '+1.5°C' : scenario === 'rcp85' ? '+4.8°C' : '+2.7°C'
   const riskContext = risks?.length
     ? `The area is particularly affected by: ${risks.join(', ')}.`
     : ''
@@ -149,7 +149,15 @@ async function generateFromPhoto(
   riskContext: string,
   locationName: string,
 ) {
+  const isLight = warming === '+1.5°C'
   const isModerate = warming === '+2.7°C'
+
+  const lightInstructions = `Apply MINIMAL but perceptible modifications to show a warmer late-summer day:
+- Vegetation: grass slightly drier in the most exposed spots, but mostly green. Trees fully leafed, perhaps marginally less lush.
+- Water bodies: normal to slightly lower levels, barely noticeable changes at the edges.
+- Sky: clear blue, slightly warmer light, faint hints of summer haze. Realistic sunny day.
+- Ground/paths: slightly drier surface, minimal cracking in exposed areas.
+- CRITICAL: The scene must still look largely normal — this is the +1.5°C Paris Agreement scenario. Green spaces survive and adapt well. Changes are subtle but visible on close inspection.`
 
   const moderateInstructions = `Apply SUBTLE but visible modifications to show a harsh late-summer drought:
 - Vegetation: grass yellowed in patches (not uniformly dead), some green remains in shaded areas. Trees show drought stress — wilted, sparse foliage, some early leaf drop — but most still have leaves.
@@ -165,9 +173,11 @@ async function generateFromPhoto(
 - Ground/paths: cracked, parched, dusty earth tones.
 - CRITICAL: Keep the image photorealistic. Think "severe drought documentary photography", not post-apocalyptic. Avoid applying a uniform color filter over the entire image. Natural color variation should remain.`
 
+  const instructions = isLight ? lightInstructions : isModerate ? moderateInstructions : severeInstructions
+
   const prompt = `Transform this photograph of ${locationName} in ${communeName} (${regionName || 'France'}) to realistically visualize climate change impacts in 2050 under ${warming} warming.
 
-${isModerate ? moderateInstructions : severeInstructions}
+${instructions}
 ${riskContext}
 
 The changes should be clearly visible in a before/after comparison while remaining scientifically plausible and photorealistic. Keep the same framing and recognizable landmarks.
@@ -228,9 +238,12 @@ async function generateTextOnly(
   riskContext: string,
   risks?: string[],
 ) {
+  const isLight = warming === '+1.5°C'
   const isModerate = warming === '+2.7°C'
 
-  const visualStyle = isModerate
+  const visualStyle = isLight
+    ? `Show a warm late-summer scene that still looks mostly healthy: grass slightly drier in sun-exposed patches but mostly green, trees fully leafed with minimal stress, clear blue sky with faint summer haze, slightly drier ground. The scene should look like an unusually warm but manageable summer day. Do NOT show dramatic drought.`
+    : isModerate
     ? `Show a harsh late-summer scene: grass yellowed in patches but some green remains, trees with drought-stressed sparse foliage, slightly hazy blue sky with warm diffused light, drier ground. The scene should look like a severe August heatwave — uncomfortable but realistic. Do NOT apply a uniform yellow/orange color filter.`
     : `Show a severe prolonged drought: most grass brown, trees with significant leaf loss and bare branches, heat haze in the atmosphere with warm pale tones, cracked dry ground, reduced water levels. Think documentary photography of extreme drought — clear impact but still photorealistic. Avoid uniform color grading.`
 

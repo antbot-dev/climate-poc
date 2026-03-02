@@ -122,44 +122,40 @@
       <div v-else-if="loadingPlaces" class="aspect-square bg-ink-800 flex items-center justify-center">
         <div class="text-center">
           <div class="w-8 h-8 border-2 border-heat-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p class="text-sm text-ink-400">Recherche de lieux emblématiques...</p>
+          <p class="text-sm text-ink-400">Recherche de lieux...</p>
         </div>
       </div>
 
-      <!-- Place picker -->
-      <div v-else-if="showPlacePicker && places.length" class="aspect-square bg-ink-800 flex flex-col">
+      <!-- Place picker — text list -->
+      <div v-else-if="showPlacePicker && places.length" class="bg-ink-800">
         <div class="px-5 pt-5 pb-3">
           <p class="text-sm text-ink-200 font-medium">
-            Choisissez un lieu de {{ communeName }} à visualiser en 2050
+            Choisissez un lieu à visualiser en 2050
           </p>
+          <p class="text-xs text-ink-500 mt-1">Parcs et espaces naturels de {{ communeName }}</p>
         </div>
-        <div class="flex-1 overflow-y-auto px-5 pb-4">
-          <div class="grid grid-cols-2 gap-3">
+        <ul class="divide-y divide-ink-700/50">
+          <li v-for="place in places" :key="place.placeId">
             <button
-              v-for="place in places"
-              :key="place.placeId"
-              class="group rounded-sm overflow-hidden bg-ink-700/50 text-left transition-all hover:ring-2 hover:ring-heat-500 hover:scale-[1.02]"
+              class="w-full text-left px-5 py-3.5 hover:bg-ink-700/40 transition-colors flex items-center justify-between group"
               @click="selectPlace(place)"
             >
-              <img
-                :src="place.thumbnailUrl"
-                :alt="place.name"
-                class="w-full aspect-[4/3] object-cover"
-              />
-              <div class="px-2.5 py-2">
-                <p class="text-xs text-ink-200 font-medium line-clamp-2 leading-snug">
-                  {{ place.name }}
-                </p>
+              <div class="min-w-0 flex-1 pr-3">
+                <p class="text-sm text-ink-100 font-medium truncate">{{ place.name }}</p>
+                <p class="text-xs text-ink-500 mt-0.5 truncate">{{ place.vicinity }}</p>
               </div>
+              <svg class="w-4 h-4 text-ink-600 group-hover:text-heat-400 transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+              </svg>
             </button>
-          </div>
-        </div>
-        <div class="px-5 pb-4 pt-1 border-t border-ink-700/50">
+          </li>
+        </ul>
+        <div class="px-5 py-4 border-t border-ink-700/50">
           <button
             class="text-[11px] text-ink-500 hover:text-ink-300 transition-colors"
             @click="generate()"
           >
-            Générer sans photo de référence →
+            Générer sans lieu spécifique →
           </button>
         </div>
       </div>
@@ -217,6 +213,7 @@ const props = defineProps<{
 }>()
 
 const scenarios = [
+  { id: 'rcp26', label: 'Optimiste', warming: '+1.5°C', activeBg: 'bg-green-600', activeText: 'text-white' },
   { id: 'rcp45', label: 'Tendanciel', warming: '+2.7°C', activeBg: 'bg-heat-600', activeText: 'text-white' },
   { id: 'rcp85', label: 'Pessimiste', warming: '+4.8°C', activeBg: 'bg-crisis-600', activeText: 'text-white' },
 ]
@@ -226,7 +223,6 @@ interface PlaceCandidate {
   name: string
   vicinity: string
   photoReference: string
-  thumbnailUrl: string
   rating: number
   types: string[]
 }
