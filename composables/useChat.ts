@@ -15,13 +15,13 @@ export function useChat() {
     if (commune) {
       return [
         `Quels risques naturels menacent ${commune} ?`,
-        `Combien de cat-nat depuis 2010 à ${commune} ?`,
+        `Quelles catastrophes naturelles ont touché ${commune} ?`,
         `Quelle évolution climatique pour ${commune} ?`,
       ]
     }
     return [
       'Quels risques naturels menacent Marseille ?',
-      'Combien de cat-nat à Lyon depuis 2010 ?',
+      'Quelles catastrophes naturelles ont touché Lyon ?',
       'Quelles communes les plus à risque en France ?',
     ]
   })
@@ -35,12 +35,16 @@ export function useChat() {
     isLoading.value = true
 
     try {
+      const c = selectedCommune.value
       const response = await $fetch<{ reply: string }>('/api/chat', {
         method: 'POST',
         body: {
           message: userMessage,
-          commune: selectedCommune.value?.nom || null,
-          codeInsee: selectedCommune.value?.code || null,
+          commune: c?.nom || null,
+          codeInsee: c?.code || null,
+          population: c?.population || null,
+          departement: c?.departement ? `${c.departement.nom} (${c.departement.code})` : null,
+          region: c?.region?.nom || null,
           history: messages.value.slice(-6),
         },
       })

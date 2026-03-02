@@ -1,106 +1,268 @@
 import Anthropic from '@anthropic-ai/sdk'
 
-// MCP tool definitions matching data.gouv.fr MCP server capabilities
-const mcpTools: Anthropic.Tool[] = [
+const DATAGOUV_MCP_URL = 'https://mcp.data.gouv.fr/mcp'
+
+// --- Georisques tools (direct API calls) ---
+
+const georisquesTools: Anthropic.Tool[] = [
   {
-    name: 'search_datasets',
-    description: 'Search for datasets on data.gouv.fr. Use this to find relevant datasets about climate, elections, risks, communes, etc.',
+    name: 'query_catnat',
+    description: 'Recherche les arrêtés de catastrophes naturelles (CatNat) pour une commune française via l\'API Géorisques. Retourne la liste des déclarations avec dates, type de risque et date de publication au JO.',
     input_schema: {
       type: 'object' as const,
       properties: {
-        query: { type: 'string', description: 'Search query in French' },
-        page_size: { type: 'number', description: 'Number of results (default 5)' },
+        code_insee: { type: 'string', description: 'Code INSEE de la commune (ex: 72168)' },
+      },
+      required: ['code_insee'],
+    },
+  },
+  {
+    name: 'query_risques',
+    description: 'Recherche les risques naturels et technologiques identifiés pour une commune française via l\'API Géorisques. Retourne les types de risques (PPR, zone sismique, etc.).',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        code_insee: { type: 'string', description: 'Code INSEE de la commune (ex: 72168)' },
+      },
+      required: ['code_insee'],
+    },
+  },
+]
+
+async function executeGeorisquesTool(name: string, input: Record<string, any>): Promise<string> {
+  try {
+    if (name === 'query_catnat') {
+      const response = await $fetch<any>('https://georisques.gouv.fr/api/v1/gaspar/catnat', {
+        params: { code_insee: input.code_insee, page_size: 50 },
+      })
+      const declarations = (response.data || []).map((d: any) => ({
+        date_debut_evt: d.date_debut_evt,
+        date_fin_evt: d.date_fin_evt,
+        libelle_risque_jo: d.libelle_risque_jo,
+        date_publication_arrete: d.date_publication_arrete,
+        code_national_catnat: d.code_national_catnat,
+      }))
+      return JSON.stringify({ total: response.total || declarations.length, declarations }, null, 2)
+    }
+
+    if (name === 'query_risques') {
+      const response = await $fetch<any>('https://georisques.gouv.fr/api/v1/gaspar/risques', {
+        params: { code_insee: input.code_insee, page_size: 50 },
+      })
+      const risques = (response.data || []).map((r: any) => ({
+        libelle_risque_long: r.libelle_risque_long,
+        num_risque: r.num_risque,
+      }))
+      return JSON.stringify({ total: response.total || risques.length, risques }, null, 2)
+    }
+
+    return JSON.stringify({ error: `Unknown Georisques tool: ${name}` })
+  } catch (e: any) {
+    return JSON.stringify({ error: e.message || 'Georisques API call failed' })
+  }
+}
+
+// --- data.gouv.fr MCP proxy tools ---
+
+const datagouvMcpTools: Anthropic.Tool[] = [
+  {
+    name: 'search_datasets',
+    description: 'Recherche des jeux de données sur data.gouv.fr par mots-clés. Première étape pour explorer les données ouvertes françaises.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        query: { type: 'string', description: 'Requête de recherche (en français, mots-clés courts et spécifiques)' },
+        page_size: { type: 'number', description: 'Nombre de résultats (défaut 5, max 20)' },
       },
       required: ['query'],
     },
   },
   {
     name: 'get_dataset_info',
-    description: 'Get detailed information about a specific dataset on data.gouv.fr by its ID.',
+    description: 'Obtenir les métadonnées détaillées d\'un jeu de données data.gouv.fr par son ID.',
     input_schema: {
       type: 'object' as const,
       properties: {
-        dataset_id: { type: 'string', description: 'The dataset ID' },
+        dataset_id: { type: 'string', description: 'L\'identifiant du dataset' },
+      },
+      required: ['dataset_id'],
+    },
+  },
+  {
+    name: 'list_dataset_resources',
+    description: 'Lister toutes les ressources (fichiers) d\'un dataset avec leurs métadonnées (format, taille, URL). Étape intermédiaire avant query_resource_data.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        dataset_id: { type: 'string', description: 'L\'identifiant du dataset' },
       },
       required: ['dataset_id'],
     },
   },
   {
     name: 'query_resource_data',
-    description: 'Query tabular data from a data.gouv.fr resource. Allows filtering and pagination.',
+    description: 'Interroger les données tabulaires d\'une ressource CSV/XLSX via l\'API tabulaire de data.gouv.fr. Supporte filtrage et tri.',
     input_schema: {
       type: 'object' as const,
       properties: {
-        resource_id: { type: 'string', description: 'The resource ID' },
-        filters: { type: 'object', description: 'Key-value filters to apply' },
-        page_size: { type: 'number', description: 'Number of rows to return' },
+        resource_id: { type: 'string', description: 'L\'identifiant de la ressource' },
+        question: { type: 'string', description: 'Ce que vous cherchez dans cette ressource (aide à contextualiser)' },
+        page_size: { type: 'number', description: 'Nombre de lignes à retourner (défaut 20)' },
+        filter_column: { type: 'string', description: 'Colonne sur laquelle filtrer' },
+        filter_value: { type: 'string', description: 'Valeur du filtre' },
+        filter_operator: { type: 'string', description: 'Opérateur: exact, contains, less, greater (défaut exact)' },
+        sort_column: { type: 'string', description: 'Colonne de tri' },
+        sort_direction: { type: 'string', description: 'Direction du tri: asc ou desc' },
       },
-      required: ['resource_id'],
+      required: ['resource_id', 'question'],
+    },
+  },
+  {
+    name: 'search_dataservices',
+    description: 'Rechercher des APIs (dataservices) tierces enregistrées sur data.gouv.fr. Utile pour trouver des APIs programmatiques.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        query: { type: 'string', description: 'Requête de recherche' },
+        page_size: { type: 'number', description: 'Nombre de résultats (défaut 5)' },
+      },
+      required: ['query'],
+    },
+  },
+  {
+    name: 'get_dataservice_info',
+    description: 'Obtenir les métadonnées d\'un dataservice (API tierce) : URL de base, documentation OpenAPI, licence.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        dataservice_id: { type: 'string', description: 'L\'identifiant du dataservice' },
+      },
+      required: ['dataservice_id'],
     },
   },
 ]
 
-// Execute MCP tool calls against data.gouv.fr APIs
-async function executeTool(name: string, input: Record<string, any>): Promise<string> {
+// MCP session management — the datagouv MCP server uses Streamable HTTP
+// with session IDs and SSE responses.
+let mcpRequestId = 0
+let mcpSessionId: string | null = null
+let mcpSessionPromise: Promise<string | null> | null = null
+
+async function initMcpSession(): Promise<string | null> {
   try {
-    switch (name) {
-      case 'search_datasets': {
-        const response = await $fetch<any>('https://www.data.gouv.fr/api/1/datasets/', {
-          params: {
-            q: input.query,
-            page_size: input.page_size || 5,
-          },
-        })
-        const datasets = response.data?.map((d: any) => ({
-          id: d.id,
-          title: d.title,
-          description: d.description?.substring(0, 200),
-          organization: d.organization?.name,
-          resources_count: d.resources?.length,
-        }))
-        return JSON.stringify(datasets || [], null, 2)
-      }
-
-      case 'get_dataset_info': {
-        const response = await $fetch<any>(`https://www.data.gouv.fr/api/1/datasets/${input.dataset_id}/`)
-        return JSON.stringify({
-          title: response.title,
-          description: response.description?.substring(0, 500),
-          resources: response.resources?.slice(0, 5).map((r: any) => ({
-            id: r.id,
-            title: r.title,
-            format: r.format,
-            url: r.url,
-          })),
-        }, null, 2)
-      }
-
-      case 'query_resource_data': {
-        const params: Record<string, any> = {
-          page_size: input.page_size || 10,
-        }
-        if (input.filters) {
-          Object.entries(input.filters).forEach(([key, value]) => {
-            params[key] = value
-          })
-        }
-        const response = await $fetch<any>(
-          `https://tabular-api.data.gouv.fr/api/resources/${input.resource_id}/data/`,
-          { params },
-        )
-        return JSON.stringify({
-          total: response.meta?.total,
-          data: response.data?.slice(0, 10),
-        }, null, 2)
-      }
-
-      default:
-        return JSON.stringify({ error: `Unknown tool: ${name}` })
+    const response = await fetch(DATAGOUV_MCP_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json, text/event-stream',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: ++mcpRequestId,
+        method: 'initialize',
+        params: {
+          protocolVersion: '2025-03-26',
+          capabilities: {},
+          clientInfo: { name: 'climate-poc', version: '1.0' },
+        },
+      }),
+    })
+    const sessionId = response.headers.get('mcp-session-id')
+    if (sessionId) {
+      mcpSessionId = sessionId
     }
+    return mcpSessionId
   } catch (e: any) {
-    return JSON.stringify({ error: e.message || 'Tool execution failed' })
+    console.error('MCP session init failed:', e.message)
+    return null
   }
 }
+
+function getMcpSession(): Promise<string | null> {
+  if (mcpSessionId) return Promise.resolve(mcpSessionId)
+  if (!mcpSessionPromise) {
+    mcpSessionPromise = initMcpSession().finally(() => { mcpSessionPromise = null })
+  }
+  return mcpSessionPromise
+}
+
+async function executeDatagouvMcpTool(name: string, input: Record<string, any>): Promise<string> {
+  try {
+    const sessionId = await getMcpSession()
+    if (!sessionId) {
+      return JSON.stringify({ error: 'Could not establish MCP session with data.gouv.fr' })
+    }
+
+    const response = await fetch(DATAGOUV_MCP_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json, text/event-stream',
+        'Mcp-Session-Id': sessionId,
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: ++mcpRequestId,
+        method: 'tools/call',
+        params: { name, arguments: input },
+      }),
+    })
+
+    // Parse SSE response — extract data from "event: message" lines
+    const text = await response.text()
+    const dataLines = text.split('\n')
+      .filter(line => line.startsWith('data: '))
+      .map(line => line.slice(6))
+
+    if (!dataLines.length) {
+      // Session may have expired — retry with fresh session
+      mcpSessionId = null
+      return JSON.stringify({ error: 'Empty MCP response, session may have expired' })
+    }
+
+    const parsed = JSON.parse(dataLines[0])
+
+    if (parsed.error) {
+      // Session expired — reset and signal error
+      if (parsed.error.code === -32600) {
+        mcpSessionId = null
+      }
+      return JSON.stringify({ error: parsed.error.message || 'MCP error' })
+    }
+
+    // MCP returns { result: { content: [{ type: "text", text: "..." }] } }
+    const content = parsed.result?.content
+    if (Array.isArray(content)) {
+      return content
+        .filter((c: any) => c.type === 'text')
+        .map((c: any) => c.text)
+        .join('\n')
+    }
+
+    return JSON.stringify(parsed.result || {}, null, 2)
+  } catch (e: any) {
+    return JSON.stringify({ error: e.message || 'data.gouv.fr MCP call failed' })
+  }
+}
+
+// --- Combined tool execution ---
+
+const allTools: Anthropic.Tool[] = [...georisquesTools, ...datagouvMcpTools]
+
+const georisquesToolNames = new Set(georisquesTools.map(t => t.name))
+const datagouvToolNames = new Set(datagouvMcpTools.map(t => t.name))
+
+async function executeTool(name: string, input: Record<string, any>): Promise<string> {
+  if (georisquesToolNames.has(name)) {
+    return executeGeorisquesTool(name, input)
+  }
+  if (datagouvToolNames.has(name)) {
+    return executeDatagouvMcpTool(name, input)
+  }
+  return JSON.stringify({ error: `Unknown tool: ${name}` })
+}
+
+// --- Main handler ---
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
@@ -114,7 +276,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const body = await readBody(event)
-  const { message, commune, codeInsee, history } = body
+  const { message, commune, codeInsee, population, departement, region, history } = body
 
   if (!message) {
     throw createError({ statusCode: 400, message: 'Message requis' })
@@ -122,25 +284,46 @@ export default defineEventHandler(async (event) => {
 
   const anthropic = new Anthropic({ apiKey })
 
+  // Build commune context block
+  let communeContext = ''
+  if (commune && codeInsee) {
+    const parts = [`L'utilisateur s'intéresse à la commune de **${commune}** (code INSEE : ${codeInsee}).`]
+    if (population) parts.push(`Population : ${population.toLocaleString('fr-FR')} habitants.`)
+    if (departement) parts.push(`Département : ${departement}.`)
+    if (region) parts.push(`Région : ${region}.`)
+    parts.push(`\nUtilise les outils query_catnat et query_risques avec le code INSEE ${codeInsee} pour répondre aux questions sur les catastrophes naturelles et risques de cette commune.`)
+    communeContext = parts.join(' ')
+  } else if (commune) {
+    communeContext = `L'utilisateur s'intéresse à la commune de ${commune}.`
+  }
+
   const systemPrompt = `Tu es un assistant spécialisé dans les données climatiques et électorales des communes françaises.
 Tu aides les citoyens à comprendre les risques climatiques de leur commune et les enjeux des élections municipales 2026.
 
-Tu as accès à des outils pour chercher et interroger des données sur data.gouv.fr (portail français de données ouvertes).
-Utilise ces outils pour répondre avec des données réelles quand c'est possible.
+RÈGLE ABSOLUE : ne jamais inventer de données factuelles (noms de maires, dates, chiffres). Utilise TOUJOURS tes outils pour vérifier avant de répondre. Si tu ne trouves pas l'information via les outils, dis-le clairement.
 
-${commune ? `L'utilisateur s'intéresse actuellement à la commune de ${commune}${codeInsee ? ` (code INSEE: ${codeInsee})` : ''}.` : ''}
+Tu as accès à plusieurs outils :
+- **query_catnat** et **query_risques** : données Géorisques (catastrophes naturelles, risques identifiés par commune)
+- **search_datasets**, **get_dataset_info**, **list_dataset_resources**, **query_resource_data** : explorer et interroger les données ouvertes de data.gouv.fr
+- **search_dataservices**, **get_dataservice_info** : découvrir des APIs de données publiques
 
-Pour les catastrophes naturelles (cat-nat), tu peux aussi mentionner l'API Géorisques : georisques.gouv.fr
-Pour les données électorales, cherche le "Répertoire National des Élus" sur data.gouv.fr.
+Utilise systématiquement ces outils pour répondre avec des données réelles. Ne fabrique pas de données.
 
-Réponds toujours en français, de manière concise et factuelle. Cite tes sources.
+${communeContext}
+
+Pour les données électorales (maire, conseil municipal), utilise le Répertoire National des Élus (RNE) sur data.gouv.fr :
+- Dataset ID : 5c34c4d1634f4173183a64f1
+- Ressource "maires" (CSV) : resource_id = 2d5cd260-fff3-47eb-8e3c-760e0a758e1a — colonnes : Code de la commune, Nom de l'élu, Prénom de l'élu, Date de naissance, Libellé de la fonction, Date de début de la fonction
+- Pour trouver le maire d'une commune, utilise query_resource_data avec filter_column="Code de la commune" et filter_value=le code INSEE.
+
+Réponds toujours en français, de manière concise et factuelle. Cite tes sources (Géorisques, data.gouv.fr, etc.).
 Contexte : les élections municipales françaises ont lieu les 15 et 22 mars 2026.
 Le livre "Gérer l'inévitable" d'Antoine Poincaré et Clément Jeanneau (Éditions de l'Aube, 2026) traite de l'adaptation climatique des territoires.`
 
   // Build messages array from history
   const messages: Anthropic.MessageParam[] = []
   if (history?.length) {
-    for (const msg of history.slice(0, -1)) { // exclude current message (already in history)
+    for (const msg of history.slice(0, -1)) {
       messages.push({
         role: msg.role,
         content: msg.content,
@@ -152,42 +335,43 @@ Le livre "Gérer l'inévitable" d'Antoine Poincaré et Clément Jeanneau (Éditi
   try {
     // Initial request with tools
     let response = await anthropic.messages.create({
-      model: 'claude-opus-4-20250514',
-      max_tokens: 1024,
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 2048,
       system: systemPrompt,
-      tools: mcpTools,
+      tools: allTools,
       messages,
     })
 
-    // Handle tool use loop (max 3 iterations)
+    // Handle tool use loop (max 8 iterations for multi-step tool chains like RNE lookup)
     let iterations = 0
-    while (response.stop_reason === 'tool_use' && iterations < 3) {
+    while (response.stop_reason === 'tool_use' && iterations < 8) {
       iterations++
 
       const toolUseBlocks = response.content.filter(
         (block): block is Anthropic.ToolUseBlock => block.type === 'tool_use',
       )
 
-      // Execute all tool calls
-      const toolResults: Anthropic.ToolResultBlockParam[] = []
-      for (const toolUse of toolUseBlocks) {
-        const result = await executeTool(toolUse.name, toolUse.input as Record<string, any>)
-        toolResults.push({
-          type: 'tool_result',
-          tool_use_id: toolUse.id,
-          content: result,
-        })
-      }
+      // Execute all tool calls in parallel
+      const toolResults: Anthropic.ToolResultBlockParam[] = await Promise.all(
+        toolUseBlocks.map(async (toolUse) => {
+          const result = await executeTool(toolUse.name, toolUse.input as Record<string, any>)
+          return {
+            type: 'tool_result' as const,
+            tool_use_id: toolUse.id,
+            content: result,
+          }
+        }),
+      )
 
       // Continue conversation with tool results
       messages.push({ role: 'assistant', content: response.content })
       messages.push({ role: 'user', content: toolResults })
 
       response = await anthropic.messages.create({
-        model: 'claude-opus-4-20250514',
-        max_tokens: 1024,
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 2048,
         system: systemPrompt,
-        tools: mcpTools,
+        tools: allTools,
         messages,
       })
     }
@@ -202,12 +386,10 @@ Le livre "Gérer l'inévitable" d'Antoine Poincaré et Clément Jeanneau (Éditi
   } catch (e: any) {
     console.error('Claude API error:', e)
 
-    // Map Anthropic SDK errors to clean French messages
     let userMessage = 'Une erreur est survenue avec le service IA.'
     let statusCode = 500
 
     if (e.status) {
-      // Anthropic APIError — has .status and .error
       const msg = e.error?.error?.message || e.message || ''
       if (e.status === 400 && msg.includes('credit')) {
         userMessage = 'Le service IA est temporairement indisponible (quota épuisé). Réessayez plus tard.'
